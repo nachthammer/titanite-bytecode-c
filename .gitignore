@@ -1,0 +1,6 @@
+*.o
+main
+
+# editor configs
+/.vscode
+/.idea
