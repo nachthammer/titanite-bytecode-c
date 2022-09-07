@@ -1,17 +1,23 @@
+# Compiler
+CC = gcc
+
+# Compiler flags
+CFLAGS = -std=c17 -Wall -Wextra
+
 all: clean main.o debug.o chunk.o memory.o
-	gcc -o main main.o debug.o chunk.o memory.o -Wall -Wextra
+	$(CC) -o main main.o debug.o chunk.o memory.o $(CFLAGS)
 
 main.o: main.c chunk.h common.h debug.h
-	gcc -c main.c
+	$(CC) -c main.c
 
 debug.o: debug.c debug.h
-	gcc -c debug.c
+	$(CC) -c debug.c
 
 chunk.o: chunk.c chunk.h memory.h
-	gcc -c chunk.c
+	$(CC) -c chunk.c
 
 memory.o: memory.c memory.h
-	gcc -c memory.c
+	$(CC) -c memory.c
 
 
 clean:
