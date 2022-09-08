@@ -64,4 +64,8 @@ bool valuesEqual(Value a, Value b)
     default:
         return false; // Unreachable.
     }
+    /* REMARK: Why is it not possible to just memcmp() those two values?
+    The problem is that because of padding and different-sized union fields, a Value contains unused bits.
+    C gives no guarantee about what is in those, so it’s possible that two equal Values actually differ in memory that isn’t used.
+    */
 }
