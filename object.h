@@ -1,0 +1,44 @@
+#ifndef titanite_object_h
+#define titanite_object_h
+
+#include "common.h"
+#include "value.h"
+
+#define OBJ_TYPE(value) (AS_OBJ(value)->type)
+
+#define IS_STRING(value) isObjType(value, OBJ_STRING)
+
+#define AS_STRING(value) ((ObjString *)AS_OBJ(value))
+#define AS_CSTRING(value) (((ObjString *)AS_OBJ(value))->chars)
+
+typedef enum
+{
+    OBJ_STRING,
+} ObjType;
+
+struct Object
+{
+    ObjType type;
+    struct Object *next;
+};
+
+// TODO(perf), TODO(memory): Each string requires two pointer inderections, do a more efficient solution via 'flexible array members'
+struct ObjString
+{
+    Object obj;
+    int length;
+    char *chars;
+    uint32_t hash;
+};
+
+ObjString *takeString(char *chars, int length);
+ObjString *copyString(const char *chars, int length);
+
+void printObject(Value value);
+
+static inline bool isObjType(Value value, ObjType type)
+{
+    return IS_OBJ(value) && AS_OBJ(value)->type == type;
+}
+
+#endif

@@ -4,8 +4,8 @@ CC = gcc
 # Compiler flags
 CFLAGS = -std=c17 -Wall -Wextra
 
-all: clean main.o debug.o chunk.o memory.o value.o vm.o compiler.o scanner.o
-	$(CC) -o main main.o debug.o chunk.o memory.o value.o vm.o compiler.o scanner.o $(CFLAGS)
+all: clean main.o debug.o chunk.o memory.o value.o vm.o compiler.o scanner.o object.o table.o
+	$(CC) -o main main.o debug.o chunk.o memory.o value.o vm.o compiler.o scanner.o object.o table.o $(CFLAGS)
 
 main.o: main.c chunk.h common.h debug.h vm.h
 	$(CC) -c main.c
@@ -30,6 +30,13 @@ compiler.o: compiler.c compiler.h common.h compiler.h scanner.h
 
 scanner.o: scanner.c scanner.h common.h
 	$(CC) -c scanner.c
+
+object.o: object.c memory.h object.h value.h vm.h
+	$(CC) -c object.c
+
+table.o: table.c table.h memory.h object.h value.h
+	$(CC) -c table.c
+
 
 clean:
 	rm -f main main.o debug.o chunk.o memory.o value.o
