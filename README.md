@@ -27,6 +27,15 @@ make all
 
 1. Chunk array (implement dynamicly growing/shrinking array for out compiler)
 
+# TODOs
+
+There are a lot of TODOs:
+
+* TODO(perf): search for this if you want to improve the performance of the language
+* TODO(memory): search for this if you want to make the language consume less memory
+* TODO(typing): search for this if you want to improve the typing/error messaging of the language
+* TODO(needed): this are important TODOs, they are usually things that go wrong when you would write a lof of code (e.g. the stack size is currently limited and does not grow dynamically)
+
 # Important things that are missing
 
 ## Line encoding
