@@ -26,3 +26,4 @@ stamp-h1
 .deps/
 config.*
 configure
+./src/.dirstamp

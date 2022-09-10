@@ -10,7 +10,7 @@ Following along the book [Crafting interpreters](https://craftinginterpreters.co
 
 ```sh
 sudo apt install build-essential
-gcc --version
+gcc --version # check if the installation succeeded
 ```
 
 # Usage
@@ -24,7 +24,7 @@ sudo apt install autoconf
 autoreconf -i
 ./configure
 make
-./titanite_compiler
+./titanite_compiler ./example.ti
 ```
 
 # Done
