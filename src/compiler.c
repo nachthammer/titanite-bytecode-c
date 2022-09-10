@@ -316,6 +316,7 @@ ParseRule rules[] = {
     [TOKEN_DOT] = {NULL, NULL, PREC_NONE},
     [TOKEN_MINUS] = {unary, binary, PREC_TERM},
     [TOKEN_PLUS] = {NULL, binary, PREC_TERM},
+    [TOKEN_CONCATENATE] = {NULL, binary, PREC_TERM},
     [TOKEN_SEMICOLON] = {NULL, NULL, PREC_NONE},
     [TOKEN_SLASH] = {NULL, binary, PREC_FACTOR},
     [TOKEN_STAR] = {NULL, binary, PREC_FACTOR},
@@ -343,7 +344,7 @@ ParseRule rules[] = {
     [TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
     [TOKEN_THIS] = {NULL, NULL, PREC_NONE},
     [TOKEN_TRUE] = {literal, NULL, PREC_NONE},
-    [TOKEN_VAR] = {NULL, NULL, PREC_NONE},
+    [TOKEN_LET] = {NULL, NULL, PREC_NONE},
     [TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
     [TOKEN_ERROR] = {NULL, NULL, PREC_NONE},
     [TOKEN_EOF] = {NULL, NULL, PREC_NONE},
@@ -444,7 +445,7 @@ static void synchronize()
         {
         case TOKEN_CLASS:
         case TOKEN_FUN:
-        case TOKEN_VAR:
+        case TOKEN_LET:
         case TOKEN_FOR:
         case TOKEN_IF:
         case TOKEN_WHILE:
@@ -461,7 +462,7 @@ static void synchronize()
 
 static void declaration()
 {
-    if (match(TOKEN_VAR))
+    if (match(TOKEN_LET))
     {
         varDeclaration();
     }
