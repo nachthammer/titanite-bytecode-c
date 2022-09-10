@@ -4,3 +4,25 @@ main
 # editor configs
 /.vscode
 /.idea
+
+# object files and binaries
+/src/*.o
+titanite_compiler
+
+# autoconfig files
+config.status
+configure 
+config.log
+Makefile
+aclocal.m4
+autom4te.cache/
+compile
+install-sh
+missing
+Makefile.in
+configure~
+depcomp
+stamp-h1
+.deps/
+config.*
+configure

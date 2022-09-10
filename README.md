@@ -15,12 +15,16 @@ gcc --version
 
 # Usage
 
-Invoke the command in the Makefile. More information about Makefiles [here](https://www.gnu.org/software/make/manual/make.html)
+Go to the [Autoconfig explanation](./AUTOCONFIG.md) for more info.
 
-We use the C17 standard.
+If you are not interested run the following:
 
 ```sh
-make all
+sudo apt install autoconf
+autoreconf -i
+./configure
+make
+./titanite_compiler
 ```
 
 # Done
