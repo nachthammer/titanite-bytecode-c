@@ -5,6 +5,7 @@
 typedef struct Object Object;
 typedef struct ObjString ObjString;
 
+// TODO(error-handling): make these enums printable to for example print the exact types which were not compatible when getting a type error.
 typedef enum
 {
     VAL_BOOL,
@@ -46,7 +47,7 @@ typedef struct
     Value *values;
 } ValueArray;
 
-bool valuesEqual(Value a, Value b);
+bool valuesEqual(Value a, Value b, int* ERROR_FLAG);
 void initValueArray(ValueArray *array);
 void writeValueArray(ValueArray *array, Value value);
 void freeValueArray(ValueArray *array);

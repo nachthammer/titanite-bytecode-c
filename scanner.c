@@ -264,13 +264,14 @@ Token scanToken()
         return makeToken(TOKEN_DOT);
     case '-':
         return makeToken(TOKEN_MINUS);
-    case '+':
-        return makeToken(TOKEN_PLUS);
     case '/':
         return makeToken(TOKEN_SLASH);
     case '*':
         return makeToken(TOKEN_STAR);
-    // two-character punctuation tokens
+        // two-character punctuation tokens
+    case '+':
+        return makeToken(
+            match('+') ? TOKEN_CONCATENATE : TOKEN_PLUS);
     case '!':
         return makeToken(
             match('=') ? TOKEN_BANG_EQUAL : TOKEN_BANG);

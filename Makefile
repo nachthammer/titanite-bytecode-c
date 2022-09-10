@@ -39,4 +39,4 @@ table.o: table.c table.h memory.h object.h value.h
 
 
 clean:
-	rm -f main main.o debug.o chunk.o memory.o value.o
+	rm -f main *.o

@@ -36,6 +36,7 @@ There are a lot of TODOs:
 * TODO(typing): search for this if you want to improve the typing/error messaging of the language
 * TODO(needed): this indicates an important TODO, they are usually things that go wrong when you would write a lof of code (e.g. the stack size is currently limited and does not grow dynamically)
 * TODO(tweak): Nice to have, but not very relevant
+* TODO(error-handling): Improvements for better error messaging for the user. Somewhat important.
 
 # Important things that are missing
 

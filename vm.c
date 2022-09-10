@@ -35,12 +35,14 @@ void initVM()
 {
     resetStack();
     vm.objects = NULL;
+    initTable(&vm.globals);
     initTable(&vm.strings);
 }
 
 void freeVM()
 {
     freeTable(&vm.strings);
+    freeTable(&vm.globals);
     freeObjects();
 }
 
@@ -92,6 +94,7 @@ static InterpretResult run()
 {
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+#define READ_STRING() AS_STRING(READ_CONSTANT())
 #define BINARY_OP(valueType, op)                        \
     do                                                  \
     {                                                   \
@@ -130,6 +133,49 @@ static InterpretResult run()
             printf("\n");
             break;
         }
+        case OP_POP:
+        {
+            pop();
+            break;
+        }
+        case OP_DEFINE_GLOBAL:
+        {
+            ObjString *name = READ_STRING();
+            tableSet(&vm.globals, name, peek(0));
+            pop();
+            break;
+        }
+        case OP_GET_GLOBAL:
+        {
+            ObjString *name = READ_STRING();
+            Value value;
+            // if the variable does not exist.
+            if (!tableGet(&vm.globals, name, &value))
+            {
+                runtimeError("Undefined variable '%s'.", name->chars);
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            push(value);
+            break;
+        }
+        case OP_SET_GLOBAL:
+        {
+            ObjString *name = READ_STRING();
+            // if the variable does not exist.
+            if (tableSet(&vm.globals, name, peek(0)))
+            {
+                tableDelete(&vm.globals, name);
+                runtimeError("Undefined variable '%s'.", name->chars);
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            break;
+        }
+        case OP_PRINT:
+        {
+            printValue(pop());
+            printf("\n");
+            break;
+        }
         case OP_NIL:
             push(NIL_VAL);
             break;
@@ -143,7 +189,14 @@ static InterpretResult run()
         {
             Value b = pop();
             Value a = pop();
-            push(BOOL_VAL(valuesEqual(a, b)));
+            int ERROR_FLAG = 0;
+            bool value_equals = valuesEqual(a, b, &ERROR_FLAG);
+            if (ERROR_FLAG == 1)
+            {
+                fprintf(stderr, "COMPARE_ERROR: Cannot compare value of different types.\n");
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            push(BOOL_VAL(value_equals));
             break;
         }
         case OP_GREATER:
@@ -152,14 +205,9 @@ static InterpretResult run()
         case OP_LESS:
             BINARY_OP(BOOL_VAL, <);
             break;
-        // TODO(tweak): make '+' not a string operation, use either '++' like Haskell or a toplevel function.
         case OP_ADD:
         {
-            if (IS_STRING(peek(0)) && IS_STRING(peek(1)))
-            {
-                concatenate();
-            }
-            else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1)))
+            if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1)))
             {
                 double b = AS_NUMBER(pop());
                 double a = AS_NUMBER(pop());
@@ -168,7 +216,21 @@ static InterpretResult run()
             else
             {
                 runtimeError(
-                    "Operands must be two numbers or two strings.");
+                    "Can only add two numbers. If you want to concatenate string use '++' instead.");
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            break;
+        }
+        case OP_CONCATENATE:
+        {
+            if (IS_STRING(peek(0)) && IS_STRING(peek(1)))
+            {
+                concatenate();
+            }
+            else
+            {
+                runtimeError(
+                    "Can only concatenate two strings.");
                 return INTERPRET_RUNTIME_ERROR;
             }
             break;
@@ -207,6 +269,7 @@ static InterpretResult run()
 
 #undef READ_BYTE
 #undef READ_CONSTANT
+#undef READ_STRING
 #undef BINARY_OP
 }
 

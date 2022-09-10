@@ -52,10 +52,11 @@ void printValue(Value value)
 }
 
 // TODO(typing): throw an error message if the types are not compatible, this is good to know for the user.
-bool valuesEqual(Value a, Value b)
+bool valuesEqual(Value a, Value b, int* ERROR_FLAG)
 {
     if (a.type != b.type)
     {
+        *ERROR_FLAG = 1;
         return false;
     }
     switch (a.type)
