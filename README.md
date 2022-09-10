@@ -68,6 +68,15 @@ There are a lot of TODO types. Look through them and search for those in the cod
 
 # Important things that are missing
 
+List of features:
+
+1. `const` keyword [specification](#implement-const-keyword)
+2. `switch` statement
+3. `else if`/`elif` branches
+4. `continue` and `break` statements
+
+Before doing anything of this, it's a good idea to talk with someone about this.
+
 ## Implement const keyword
 
 Well this is very self-explanatory. you can reassign a different value to a variable which for declared with `let`. For example this is valid.
@@ -151,6 +160,10 @@ void writeConstant(Chunk* chunk, Value value, int line) {
 It adds value to chunk’s constant array and then writes an appropriate instruction to load the constant. Also add support to the disassembler for OP_CONSTANT_LONG instructions.
 
 Defining two instructions seems to be the best of both worlds. What sacrifices, if any, does it force on us?
+
+## Reimplement or_ function
+
+Right now the function which handles the logical or is written purely with functions which were are also used by if and else. So the implementation is not ideal. `OR` is slower than `AND`. And this should not be the case. Search for `or_` in compiler and make it better.
 
 ## Own realloc function.
 

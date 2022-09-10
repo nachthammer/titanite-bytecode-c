@@ -10,6 +10,7 @@ typedef enum
     // control flow
     OP_JUMP_IF_FALSE,
     OP_JUMP,
+    OP_LOOP,
     // other
     OP_CONSTANT,
     OP_POP,

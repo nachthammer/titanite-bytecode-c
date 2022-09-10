@@ -155,6 +155,21 @@ static void emitBytes(uint8_t byte1, uint8_t byte2)
     emitByte(byte2);
 }
 
+static void emitLoop(int loopStart)
+{
+    emitByte(OP_LOOP);
+
+    // the offset we want to jump back after finishing a round in the loop
+    // The + 2 is to take into account the size of the OP_LOOP instruction’s
+    // own operands which we also need to jump over.
+    int offset = currentChunk()->count - loopStart + 2;
+    if (offset > UINT16_MAX)
+    {
+        error("Loop body too large.");
+    }
+    emitByte((offset >> 8) & 0xff);
+    emitByte(offset & 0xff);
+}
 /**
  * We emit the Jump intruction, but we do not know the jump range yet.
  * Therefore we reserve/write two placeholder/dummy bytes onto the bytecode
@@ -485,6 +500,18 @@ static void and_(bool canAssign)
     patchJump(endJump);
 }
 
+static void or_(bool canAssign)
+{
+    int elseJump = emitJump(OP_JUMP_IF_FALSE);
+    int endJump = emitJump(OP_JUMP);
+
+    patchJump(elseJump);
+    emitByte(OP_POP);
+
+    parsePrecedence(PREC_OR);
+    patchJump(endJump);
+}
+
 ParseRule rules[] = {
     [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},
     [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
@@ -516,7 +543,7 @@ ParseRule rules[] = {
     [TOKEN_FUN] = {NULL, NULL, PREC_NONE},
     [TOKEN_IF] = {NULL, NULL, PREC_NONE},
     [TOKEN_NIL] = {literal, NULL, PREC_NONE},
-    [TOKEN_OR] = {NULL, NULL, PREC_NONE},
+    [TOKEN_OR] = {NULL, or_, PREC_NONE},
     [TOKEN_PRINT] = {NULL, NULL, PREC_NONE},
     [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
     [TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
@@ -621,6 +648,52 @@ static void expressionStatement()
     emitByte(OP_POP);
 }
 
+static void forStatement()
+{
+    beginScope();
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+    // this is the initiliazer clause, which gets executed the first time the loop starts
+    // if there is a declaration then the new variable goes out of scope once the loop ends
+    // this is achieved via the beginScope() and endScope() functions.
+    if (match(TOKEN_SEMICOLON))
+    {
+        // No initializer.
+    }
+    else if (match(TOKEN_LET))
+    {
+        varDeclaration(); // e.g. for (let i = 2; ...
+    }
+    else
+    {
+        expressionStatement(); // e.g. for (a = 2; ...
+    }
+
+    int loopStart = currentChunk()->count;
+    // condition clause, we look if one is existent by checking if the next token is a ';'
+    int exitJump = -1;
+    if (!match(TOKEN_SEMICOLON))
+    {
+        expression();
+        consume(TOKEN_SEMICOLON, "Expect ';' after loop condition.");
+
+        // Jump out of the loop if the condition is false.
+        exitJump = emitJump(OP_JUMP_IF_FALSE);
+        emitByte(OP_POP); // Condition.
+    }
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
+
+    statement();
+    emitLoop(loopStart);
+
+    // patch the jump from the condition clause of the for loop
+    if (exitJump != -1)
+    {
+        patchJump(exitJump);
+        emitByte(OP_POP); // Condition.
+    }
+    endScope();
+}
+
 static void ifStatement()
 {
     consume(TOKEN_LEFT_PAREN, "Expect '(' after if keyword.");
@@ -655,6 +728,30 @@ static void printStatement()
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after print expression.");
     consume(TOKEN_SEMICOLON, "Expect ';' after print statement.");
     emitByte(OP_PRINT);
+}
+
+static void whileStatement()
+{
+    int loopStart = currentChunk()->count;
+
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+
+    int exitJump = emitJump(OP_JUMP_IF_FALSE);
+    emitByte(OP_POP);
+    // TODO(tweak): good first issue
+    // We want the while body to be a block.
+    // This means we want braces after the while condition for
+    // clearer code separation and no code formatting ambiguities, this should be easy (example below)
+    // while(true) print("this should be illegal");
+    // while(true) { print ("this is the only way"); }
+    statement();
+
+    emitLoop(loopStart);
+
+    patchJump(exitJump);
+    emitByte(OP_POP);
 }
 
 /**
@@ -720,6 +817,14 @@ static void statement()
     else if (match(TOKEN_IF))
     {
         ifStatement();
+    }
+    else if (match(TOKEN_WHILE))
+    {
+        whileStatement();
+    }
+    else if (match(TOKEN_FOR))
+    {
+        forStatement();
     }
     else
     {
