@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h> // for memcmp
 
 #include "common.h"
 #include "compiler.h"
@@ -41,8 +42,25 @@ typedef struct
     Precedence precedence;
 } ParseRule;
 
-Parser parser;
+typedef struct
+{
+    Token name; // the token representation of the local variable
+    int depth;  // the depth of the current local variable
+} Local;
 
+typedef struct
+{
+    Local locals[UINT8_COUNT];
+    int localCount; // number of variables in the current scope
+    int scopeDepth; // 0 is the global scope, 1 iss the first top-level block, etc.
+} Compiler;
+
+Parser parser;
+// TODO(threading): If we want threads (+ thread safety),
+// we need to give each function in the frontend a parameter that
+// accepts a pointer to a Compiler. We’d create a Compiler at the beginning
+// and carefully thread it through each function call. The global compiler pointer is a bad idea here.
+Compiler *current = NULL;
 Chunk *compilingChunk;
 
 static Chunk *currentChunk()
@@ -159,6 +177,13 @@ static void emitConstant(Value value)
     emitBytes(OP_CONSTANT, makeConstant(value));
 }
 
+static void initCompiler(Compiler *compiler)
+{
+    compiler->localCount = 0;
+    compiler->scopeDepth = 0;
+    current = compiler;
+}
+
 /* When we are done with compiling the chunk */
 static void endCompiler()
 {
@@ -171,6 +196,26 @@ static void endCompiler()
 #endif
 }
 
+static void beginScope()
+{
+    current->scopeDepth++;
+}
+
+static void endScope()
+{
+    current->scopeDepth--;
+
+    // when exiting the current scope, delete all variables belonging to exactly this scope by:
+    // popping from the vm stack and reducing the pointer (localCount) from the Compiler.
+    while (current->localCount > 0 &&
+           current->locals[current->localCount - 1].depth >
+               current->scopeDepth)
+    {
+        emitByte(OP_POP);
+        current->localCount--;
+    }
+}
+
 static void expression();
 static void declaration();
 static void statement();
@@ -181,6 +226,83 @@ static uint8_t identifierConstant(Token *name)
 {
     return makeConstant(OBJ_VAL(copyString(name->start,
                                            name->length)));
+}
+
+static bool identifiersEqual(Token *a, Token *b)
+{
+    if (a->length != b->length)
+        return false;
+    return memcmp(a->start, b->start, a->length) == 0;
+}
+
+/**
+ * Ressolving the local variable.
+*/
+static int resolveLocal(Compiler *compiler, Token *name)
+{
+    for (int i = compiler->localCount - 1; i >= 0; i--)
+    {
+        Local *local = &compiler->locals[i];
+        if (identifiersEqual(name, &local->name))
+        {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+/**
+ * This initializes the next available Local in the compiler’s array of variables.
+ * It stores the variable’s name and the depth of the scope that owns the variable.
+ */
+static void addLocal(Token name)
+{
+    // Otherwise our fixed size array would overflow and we would write on unallocated memory.
+    if (current->localCount == UINT8_COUNT)
+    {
+        error("Too many local variables in function.");
+        return;
+    }
+    Local *local = &current->locals[current->localCount++];
+    local->name = name;
+    local->depth = current->scopeDepth;
+}
+
+static void declareVariable()
+{
+    // if we are in the top level scope, we bail out. Because global variables
+    // are late bound, the compiler doesn’t keep track of which declarations for them it has seen.
+    if (current->scopeDepth < 0)
+    {
+        return;
+    }
+
+    Token *name = &parser.previous;
+    // Detect variable redeclaration, this shall be an error in our language.
+    // Detect variable shadowing, this shall be an error in our language.
+    for (int i = current->localCount - 1; i >= 0; i--)
+    {
+        Local *local = &current->locals[i];
+        if (local->depth != -1)
+        {
+            break;
+        }
+        // uncoment the following code block this to allow shadowing, but pls don't.
+        // skips if we are not in the same scope anymore,
+        // therefore skipping the lower scope checks and enabling shadowing.
+        /*if (local->depth < current->scopeDepth) {
+            break;
+        }*/
+        if (identifiersEqual(name, &local->name))
+        {
+            // TODO(error-handling): Give the variable name by providing the string with the variable name in it.
+            // This can be done for example with sprintf (unsafe, ANSIC) or snprintf (safer version, C99).
+            // This would provide a better error message. Or do it like the runtimeError function in vm.c
+            error("Cannot redeclare the variable.");
+        }
+    }
+    addLocal(*name);
 }
 
 static void binary(bool canAssign)
@@ -268,15 +390,28 @@ static void string(bool canAssign)
 
 static void namedVariable(Token name, bool canAssign)
 {
-    uint8_t arg = identifierConstant(&name);
-    if (canAssign && match(TOKEN_EQUAL))
+    uint8_t getOp, setOp;
+    int arg = resolveLocal(current, &name);
+    if (arg != -1)
     {
-        expression();
-        emitBytes(OP_SET_GLOBAL, arg);
+        getOp = OP_GET_LOCAL;
+        setOp = OP_SET_LOCAL;
     }
     else
     {
-        emitBytes(OP_GET_GLOBAL, arg);
+        arg = identifierConstant(&name);
+        getOp = OP_GET_GLOBAL;
+        setOp = OP_SET_GLOBAL;
+    }
+
+    if (canAssign && match(TOKEN_EQUAL))
+    {
+        expression();
+        emitBytes(setOp, (uint8_t)arg);
+    }
+    else
+    {
+        emitBytes(getOp, (uint8_t)arg);
     }
 }
 
@@ -379,11 +514,23 @@ static void parsePrecedence(Precedence precedence)
 static uint8_t parseVariable(const char *errorMessage)
 {
     consume(TOKEN_IDENTIFIER, errorMessage);
+
+    declareVariable();
+    if (current->scopeDepth > 0)
+    {
+        return 0;
+    }
+
     return identifierConstant(&parser.previous);
 }
 
 static void defineVariable(uint8_t global)
 {
+    if (current->scopeDepth > 0)
+    {
+        return;
+    }
+
     emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
@@ -395,6 +542,15 @@ static ParseRule *getRule(TokenType type)
 static void expression()
 {
     parsePrecedence(PREC_ASSIGNMENT);
+}
+
+static void block()
+{
+    while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF))
+    {
+        declaration();
+    }
+    consume(TOKEN_RIGHT_BRACE, "Expect '}' at the end of a block.");
 }
 
 static void varDeclaration()
@@ -484,6 +640,12 @@ static void statement()
         consume(TOKEN_LEFT_PAREN, "Expect '(' after print keyword.");
         printStatement();
     }
+    else if (match(TOKEN_LEFT_BRACE))
+    {
+        beginScope();
+        block();
+        endScope();
+    }
     else
     {
         expressionStatement();
@@ -493,6 +655,8 @@ static void statement()
 bool compile(const char *source, Chunk *chunk)
 {
     initScanner(source);
+    Compiler compiler;
+    initCompiler(&compiler);
     compilingChunk = chunk;
     parser.hadError = false;
     parser.panicMode = false;

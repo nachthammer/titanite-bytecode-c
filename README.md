@@ -29,11 +29,27 @@ make
 
 # Done
 
-1. Chunk array (implement dynamicly growing/shrinking array for out compiler)
+1. Chunk array (implement dynamicly growing/shrinking array for our compiler)
+
+## Contributing
+
+Look at the list of TODOs below to find something you are interested in or just go through the code to find something.
+
+## Guideline
+
+### Specify why adding a dependency.
+
+We want to pollute are files as little as possible. This means, if you add a header file for the first time in the c file from the standard c library, write down why you added it.
+
+For example:
+
+```c
+#include <string.h> // for memcpy
+```
 
 # TODOs
 
-There are a lot of TODOs:
+There are a lot of TODO types. Look through them and search for those in the code, if you find a specific TODO type interesting.
 
 * TODO(perf): search for this if you want to improve the performance of the language
 * TODO(memory): search for this if you want to make the language consume less memory
@@ -41,8 +57,70 @@ There are a lot of TODOs:
 * TODO(needed): this indicates an important TODO, they are usually things that go wrong when you would write a lof of code (e.g. the stack size is currently limited and does not grow dynamically)
 * TODO(tweak): Nice to have, but not very relevant
 * TODO(error-handling): Improvements for better error messaging for the user. Somewhat important.
+* TODO(threading): Improvements that provide better thread safety (or thread safety at all). Not really important until we get threads going, if we ever do.
 
 # Important things that are missing
+
+## Implement const keyword
+
+Well this is very self-explanatory. you can reassign a different value to a variable which for declared with `let`. For example this is valid.
+
+```rs
+let a = 2;
+a = 3;
+```
+
+But we also want a const keyword, which has to be initialized the moment it is declared. For example:
+
+```js
+const a; // this is illegal and should throw and error
+
+const b = 3;
+b = 4 // this is illegal and should throw and error
+
+const c = 6; // we can only use this variable later
+let d = c+3; // this is fine.
+```
+
+## Allow more that 256 variables at the same time.
+
+Right now the number of local variable of the compiler cannot be more than 256, which is restricted by this variable in `common.h`.
+
+```c
+#define UINT8_COUNT (UINT8_MAX + 1)
+```
+
+and this typedefinition in `compiler.c` which uses the previous constant as the array length of the list where the locals get saved.
+
+```c
+typedef struct
+{
+    Local locals[UINT8_COUNT]; // this should start grow dynamically.
+    int localCount;
+    int scopeDepth;
+} Compiler;
+```
+
+The restriction is enforced in the addLocal function. This could be a starting point to implement this feature.
+
+```c
+/**
+ * This initializes the next available Local in the compiler’s array of variables.
+ * It stores the variable’s name and the depth of the scope that owns the variable.
+ */
+static void addLocal(Token name)
+{
+    // If a 257th variable would be added right now, this if branch prevents it by throwing a compiler error.
+    if (current->localCount == UINT8_COUNT)
+    {
+        error("Too many local variables in function.");
+        return;
+    }
+    Local *local = &current->locals[current->localCount++];
+    local->name = name;
+    local->depth = current->scopeDepth;
+}
+```
 
 ## Line encoding
 
