@@ -93,6 +93,7 @@ static void skipWhitespace()
         switch (c)
         {
         case ' ':
+        case 32:
         case '\r':
         case '\t':
             advance();
@@ -288,5 +289,8 @@ Token scanToken()
     case '"':
         return string();
     }
+    // TODO(breaking-bug): For some reason, tabs in visual studio dont work, and he returns
+    // 32 (space in ascii), although this should be skipped by skipWhitespace(), something went very wrong.
+    fprintf(stdout, "Unexpected character. '%d'\n", (int)c);
     return errorToken("Unexpected character.");
 }

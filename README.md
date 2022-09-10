@@ -37,6 +37,12 @@ Look at the list of TODOs below to find something you are interested in or just 
 
 ## Guideline
 
+### Invariants
+
+When adding a new statement make sure that
+
+1. after a statement is finished executing the stack should be as tall as before.
+
 ### Specify why adding a dependency.
 
 We want to pollute are files as little as possible. This means, if you add a header file for the first time in the c file from the standard c library, write down why you added it.
@@ -51,6 +57,7 @@ For example:
 
 There are a lot of TODO types. Look through them and search for those in the code, if you find a specific TODO type interesting.
 
+* TODO(breaking-bug): this needs imidiate attention. Fix this first if possible.
 * TODO(perf): search for this if you want to improve the performance of the language
 * TODO(memory): search for this if you want to make the language consume less memory
 * TODO(typing): search for this if you want to improve the typing/error messaging of the language

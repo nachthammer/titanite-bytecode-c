@@ -7,6 +7,10 @@
 // TODO(perf): implement !=, <=, >= (OP_NOT_EQUAL, OP_LE, OP_GE)
 typedef enum
 {
+    // control flow
+    OP_JUMP_IF_FALSE,
+    OP_JUMP,
+    // other
     OP_CONSTANT,
     OP_POP,
     OP_DEFINE_GLOBAL,

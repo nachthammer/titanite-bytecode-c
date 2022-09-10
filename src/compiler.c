@@ -155,6 +155,22 @@ static void emitBytes(uint8_t byte1, uint8_t byte2)
     emitByte(byte2);
 }
 
+/**
+ * We emit the Jump intruction, but we do not know the jump range yet.
+ * Therefore we reserve/write two placeholder/dummy bytes onto the bytecode
+ * and return a pointer to them, so the calling function can write the jump range down
+ * when it calculates the jump range.
+ */
+static int emitJump(uint8_t intruction)
+{
+    emitByte(intruction);
+    // now we write two placeholder/dummy valued for the jump range
+    emitByte(0xff);
+    emitByte(0xff);
+    // and return the pointer to this dummy location, so we can use it later
+    return currentChunk()->count - 2;
+}
+
 static void emitReturn()
 {
     emitByte(OP_RETURN);
@@ -175,6 +191,23 @@ static uint8_t makeConstant(Value value)
 static void emitConstant(Value value)
 {
     emitBytes(OP_CONSTANT, makeConstant(value));
+}
+
+/**
+ * This is the function where we finally write the jump range onto the bytecode.
+ */
+static void patchJump(int offset)
+{
+    // -2 to adjust for the bytecode for the jump offset itself.
+    int jump = currentChunk()->count - offset - 2;
+
+    if (jump > UINT16_MAX)
+    {
+        error("Too much code to jump over.");
+    }
+
+    currentChunk()->code[offset] = (jump >> 8) & 0xff;
+    currentChunk()->code[offset + 1] = jump & 0xff;
 }
 
 static void initCompiler(Compiler *compiler)
@@ -237,7 +270,7 @@ static bool identifiersEqual(Token *a, Token *b)
 
 /**
  * Ressolving the local variable.
-*/
+ */
 static int resolveLocal(Compiler *compiler, Token *name)
 {
     for (int i = compiler->localCount - 1; i >= 0; i--)
@@ -442,6 +475,16 @@ static void unary(bool canAssign)
     }
 }
 
+static void and_(bool canAssign)
+{
+    int endJump = emitJump(OP_JUMP_IF_FALSE);
+
+    emitByte(OP_POP);
+    parsePrecedence(PREC_AND);
+
+    patchJump(endJump);
+}
+
 ParseRule rules[] = {
     [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},
     [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
@@ -465,7 +508,7 @@ ParseRule rules[] = {
     [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
     [TOKEN_STRING] = {string, NULL, PREC_NONE},
     [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
-    [TOKEN_AND] = {NULL, NULL, PREC_NONE},
+    [TOKEN_AND] = {NULL, and_, PREC_NONE},
     [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
     [TOKEN_ELSE] = {NULL, NULL, PREC_NONE},
     [TOKEN_FALSE] = {literal, NULL, PREC_NONE},
@@ -578,6 +621,34 @@ static void expressionStatement()
     emitByte(OP_POP);
 }
 
+static void ifStatement()
+{
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after if keyword.");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after if condition.");
+
+    // we use backpatching, this means, we emit the jump intruction with
+    // a dummy placeholder offset operand (how far it should jump)
+    int thenJump = emitJump(OP_JUMP_IF_FALSE);
+    // clear the condition that was left on the stack.
+    emitByte(OP_POP);
+    statement();
+
+    int elseJump = emitJump(OP_JUMP);
+
+    // here we know how far we have to jump so we replace the dummy from before.
+    patchJump(thenJump);
+
+    // clear the condition that was left on the stack.
+    emitByte(OP_POP);
+
+    if (match(TOKEN_ELSE))
+    {
+        statement();
+    }
+    patchJump(elseJump);
+}
+
 static void printStatement()
 {
     expression();
@@ -645,6 +716,10 @@ static void statement()
         beginScope();
         block();
         endScope();
+    }
+    else if (match(TOKEN_IF))
+    {
+        ifStatement();
     }
     else
     {
