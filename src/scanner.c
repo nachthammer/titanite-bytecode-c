@@ -93,7 +93,6 @@ static void skipWhitespace()
         switch (c)
         {
         case ' ':
-        case 32:
         case '\r':
         case '\t':
             advance();
